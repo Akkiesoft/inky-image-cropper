@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Image cropper for Inky series</title>
+  <link rel="stylesheet" href="cropper.min.css">
+<style>
+*    { margin: 0; padding: 0; }
+body { padding: 10px; }
+#workspace   { visibility: hidden; }
+#input_image { margin    : 1em 0; }
+#image-wrap  { max-width : 500px; }
+#image {
+  display: block;
+  max-width: 100%;
+}
+#result     { visibility  : hidden; }
+#result_img { visibility  : hidden; }
+div         { margin      : 1em 0; }
+button      { padding     : 0.3em 2em; }
+label       { margin-right: 0.5em; }
+</style>
+</head>
+<body>
+  <h1>Image cropper for Inky series</h1>
+  <input type="file" id="input_image" accept="image/*">
+  <div id="workspace">
+    <div id="buttons">
+      <button id="rotate" onClick="rotate()">rotate</button>
+      <button id="drawit" onClick="drawit()">draw it</button>
+    </div>
+    <div id="radios">
+      <input type="radio" id="picoinky" name="epaper-type" value="picoinky" onclick="set_picoinky()" checked>
+      <label for="picoinky">Pico Inky</label>
+      <input type="radio" id="inky57" name="epaper-type" value="inky57" onclick="set_inky57()">
+      <label for="inky57">Inky Frame/Inky Impression(5.7'')</label>
+    </div>
+    <div id="image-wrap">
+      <a id="download"><img id="image"></a>
+    </div>
+    <div><img id="result_img"><canvas id="result"></canvas></div>
+  </div>
+  <script src="cropper.min.js"></script>
+<script>
+// e-paper size
+var epw = 296;
+var eph = 128;
+var color = false;
+
+// canvas
+var result = document.getElementById('result');
+result.width = epw;
+result.height = eph;
+var ctx = result.getContext('2d');
+var result_img = document.getElementById('result_img');
+
+// cropper options
+const options = {
+  aspectRatio: 37 / 16,
+  dragMode: 'move',
+  toggleDragModeOnDblclick: false,
+  ready() {
+        document.getElementById("workspace").style.visibility = "visible";
+  }
+};
+
+var image = document.getElementById('image');
+var uploaded_image;
+var cropper;
+var input_image = document.getElementById('input_image');
+input_image.onchange = function () {
+  var files = this.files;
+  var file;
+  if (files && files.length) {
+    file = files[0];
+    if (/^image\/\w+/.test(file.type)) {
+      image.src = uploaded_image = URL.createObjectURL(file);
+    }
+    if (cropper) {
+      cropper.destroy();
+      ctx.clearRect(0, 0, epw, eph);
+      document.getElementById("workspace").style.visibility = "hidden";
+    }
+    cropper = new Cropper(image, options);
+    input_image.value = null;
+  }
+}
+
+function set_picoinky() {
+  epw = 296;
+  eph = 128;
+  result.width = epw;
+  result.height = eph;
+  color = false;
+  cropper.setAspectRatio(37 / 16);
+}
+
+function set_inky57() {
+  epw = 600;
+  eph = 448;
+  result.width = epw;
+  result.height = eph;
+  color = true;
+  cropper.setAspectRatio(75 / 56);
+}
+
+function rotate() {
+  cropper.rotate(-90);
+}
+
+function drawit() {
+  const d = cropper.getData();
+  const w = d.width;
+  const h = d.height;
+  const c = cropper.getCroppedCanvas();
+
+  // resize
+  ctx.clearRect(0, 0, epw, eph);
+  ctx.drawImage(c, 0, 0, w, h, 0, 0, epw, eph);
+
+  // to grayscale
+  // https://qiita.com/sassy_watson/items/676af253d8425ce0f8fc
+  console.log(color);
+  if (! color) {
+    var src = ctx.getImageData(0, 0, epw, eph);
+    var dst = ctx.createImageData(epw, eph);
+    for (var i = 0; i < src.data.length; i=i+4) {
+      var pixel = (src.data[i] + src.data[i+1] + src.data[i+2]) / 3;
+      dst.data[i] = dst.data[i+1] = dst.data[i+2] = pixel;
+      dst.data[i+3] = src.data[i+3];
+    }
+    ctx.putImageData(dst, 0, 0);
+  }
+
+  result_img.src = result.toDataURL('image/jpeg', 0.88);
+  result_img.style.visibility = "visible";
+}
+</script>
+</body>
+</html>
